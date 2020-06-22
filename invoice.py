@@ -21,7 +21,7 @@ from sys import argv
 # ------------------------------------------------------------------------------
 # COMMAND LINE INPUTS
 
-# check command line arg for month and year of invoice
+# check command line args for month and year of invoice
 if len(argv) > 2:
     MONTH = argv[1] # first argument is the month
     YEAR = argv[2] # second argument is the year
@@ -41,7 +41,7 @@ try:
 except ValueError: # else exit
     str_exit =  'Improper command line inputs.\n'
     str_exit += 'Proper input looks like:\n'
-    str_exit += 'python code/omega_gui.py September 2019'
+    str_exit += 'python code/invoice.py September 2019'
     exit(str_exit)
 
 ### needed template files
@@ -97,7 +97,7 @@ tabl = pd.read_excel(invoice_data_template,
                      dtype=types,
                      skiprows=1)
 # fix email improper reading in of NA string values
-tabl['EMAIL_ADDRESS'] = tabl['EMAIL_ADDRESS'].astype(str) #'NA' converted to 'nan'
+tabl['EMAIL_ADDRESS'] = tabl['EMAIL_ADDRESS'].astype(str) #'NA' is converted to 'nan'
 # fill in any missing data for string variables
 # fill in with a blank ''
 na_list = ['FIRST', 'LAST', 'STREET_ADDRESS', 'CITY_ADDRESS', 'MY_NOTES']
@@ -112,8 +112,7 @@ tabl['ADD_CHARGE'] = np.zeros(N, dtype=float)
 tabl['ADD_CHARGE_NOTES'] = ['']*N
 tabl['CUST_REMINDER'] = ['']*N
 
-# indicator for whether to include rows or not for the outgoing files and...
-# ...for use in the auxiliary program
+# indicator for whether to include rows or not for the outgoing files
 included = np.ones(N, dtype=int)
 
 # ------------------------------------------------------------------------------
@@ -121,12 +120,17 @@ included = np.ones(N, dtype=int)
 ## CREATE DIRECTORY
 print("Creating directories...")
 
-### month dict
+### month dict: month name -> numerical two digit code
 month_dict = {'January':'01', 'February':'02', 'March':'03', 'April':'04',
                 'May':'05', 'June':'06', 'July':'07', 'August':'08',
                 'September':'09', 'October':'10', 'November':'11', 'December':'12'}
 
 # make directory
+# example: invoices/2019_09_September
+# this allows invoices to be properly sorted numerically
+# -- e.g. 2019_08_August is on top of 2019_09_September
+# -- and 2018_12_December is on top of 2019_01_January
+# -- and 2018_09_September is above 2019_09_September
 path = 'invoices/'+YEAR+'_'+month_dict[MONTH]+'_'+MONTH
 try:
     os.mkdir(path)
@@ -134,6 +138,7 @@ except OSError:
     exit("Creation of the directory %s failed" % path)
 
 # make "emails" directory
+# example: invoices/2019_09_September/emails
 emails_path = path+'/emails'
 try:
     os.mkdir(emails_path)
@@ -149,16 +154,16 @@ except OSError:
 ##### global vars
 # current row
 index = 0
-# indicator for whether or not the back button is on
+# indicator for whether or not the 'back button' is on in the gui
 back_on = False
 # indicator for restoring the main gui format upon going back to the main...
-# ...program from the exit screen
+# ...program from the exit screen gui format
 last_back = False
 # error string to attach if we receive improper input
 error_str = ''
-# back string to tell us we went back a row
+# back string to infrom user we went back a row
 back_str = ''
-# indicator for whether we have finished the main gui program
+# indicator for whether we have finished the main invoicing program
 final_end = False
 # dates error indicator
 dates_err_ind = False
@@ -167,7 +172,10 @@ remind_ind = False
 # row counter, column counter
 row_inc = 0
 col_inc = 0
-last_row = 10
+##### last tow of the gui format
+# main->0; month charge->1; add charge->2; notes add char->3; notes->4;
+# cust remind->5; check->6; button one->7; button two->7
+last_row = 7
 
 ##### constants for tkinter display windows
 font = 'Times' # font type
@@ -176,9 +184,9 @@ size = 18 # font size
 col1 = '#14bcfe' #color-> blue-ish
 col2 = '#fe9114' #color -> orange-ish
 notes_color = 'black' # notes color
-reminder_color = '#cf2b29'#e34240' #red-sh
+reminder_color = 'purple' ## '#cf2b29';'#e34240'; red-ish
 amt_color = 'green' # amount color
-add_color = '#0a4cbf'
+add_color = '#0a4cbf' # #blue-ish
 cust_remind_color = 'red' # cust reminder color
 thick = 2 # highlighted thickness
 pad = 6 # amount of padding
@@ -248,8 +256,8 @@ def begin():
     ##### first button
     # change text: begin -> next
     # change command
-    # if clicked, we begin the main program on with the first row
-    # for proper display, we forget it to place it at the end later
+    # if clicked, we move to the next row
+    # for proper display, we forget it so that we can place it at the end later
     btn_one.grid_forget()
     btn_one.config(text= 'Next')
     btn_one.config(command= next)
@@ -258,7 +266,7 @@ def begin():
     # change text: close -> back
     # change command
     # if clicked, we move back to the previous row
-    # for proper display, we forget it to place it at the end later
+    # for proper display, we forget it so that place it at the end later
     btn_two.grid_forget()
     btn_two.config(text= 'Back')
     btn_two.config(command= back)
@@ -327,14 +335,16 @@ def update():
     my_notes_entry.delete(0, 'end')
     cust_reminder_entry.delete(0, 'end')
     ##### reset checkbox
-    var.set(0) # value -> set it back to zero or off
+    var.set(0) # value -> set it back to zero ie off
     chk["fg"] = off_color # color -> set back to off color, not clicked
 
     ##### error string and label logic
-    if error_str != '':
+    if error_str != '': # add in the error label and message
         error_lbl.config(text= error_str)
         error_lbl.grid(row= last_row+1, column= col_inc, pady = 0, columnspan=2)
     else:
+        # remove the error lbl if present before
+        # if error was not present before, this does nothing
         error_lbl.grid_forget()
 
     ##### back button logic
@@ -343,7 +353,7 @@ def update():
     # first row becuase there is nothing to go back to; close the window to quit
     if index == 1 and back_on == False:
         # pack the back button
-        btn_two.grid(row= last_row, column= col_inc, padx= pad)
+        btn_two.grid(row= last_row, column= col_inc+1, padx= pad)
         # update conditional that the 'back button' is on
         back_on = True
     # --------------------------------------------------------------------------
@@ -363,6 +373,8 @@ def update():
         btn_two.grid_forget()
 
         ##### bring back the labels and entries
+        # increment row bc we do not forget the main label
+        row_inc += 1
         # monthly charge
         monthly_charge_lbl.grid(row= row_inc, column= col_inc, pady= pad)
         monthly_charge_entry.grid(row= row_inc, column= col_inc+1, padx= pad)
@@ -499,18 +511,10 @@ def end():
     global chk
     global last_back
 
-    ##### update the main label
-    # color
-    if dates_err_ind == True: # first indicator, red if any error
-        main_lbl.config(fg= 'red')
-    elif remind_ind == True: # if no error, then can set reminder
-        main_lbl.config(fg= reminder_color)
-    else: # revert to default, black color
-        main_lbl.config(fg= 'black')
-
     ##### updating labels and buttons
-    ## update the text in the main label
+    ## update the text in the main label and its color
     main_lbl.config(text= "You're done.")
+    main_lbl.config(fg= 'black')
 
     ## update button one - originally the begin button then the next button
     btn_one.config(text= 'Close') # update the text of the button
@@ -579,18 +583,22 @@ def next():
             included[index] = 0
 
         ##### clear the error string
+        # ie we have not run into an error at this point
         error_str = ''
 
-        ##### update index
+        ##### update index -- bc we have no error
         index += 1
 
     # reached an error
     except NameError:
         # we have an error, so update error string
+        # and do not move forward with index
         error_str = '\n\n' + \
         'Previous error. Make sure amounts are valid real numbers.'
 
     ##### update
+    # -- if we had no error, we update to the next row
+    # -- if we had an error, we re-update the current row with an error message
     update()
     return
 
