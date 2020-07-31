@@ -46,21 +46,27 @@ except ValueError: # else exit
 
 ### needed template files
 # docs
+fpage = 'templates/fpage.docx' # first page
 invoice_template = 'templates/invoice_template.docx'
 invoice_template_mult = 'templates/invoice_template_mult.docx' #goes with RPind
 invoice_template_z = 'templates/invoice_template_z.docx' #goes with Zind
+invoice_template_z_gg = 'templates/invoice_template_z.docx' #goes with Zind/ gg
 invoice_template_v = 'templates/invoice_template_v.docx' #goes with Vind
 
 # data
 invoice_data_template = 'templates/invoice_data_template.xlsx'
 
 # check for needed files
+if not os.path.exists(fpage): # fpage template
+    exit('Missing fpage template.')
 if not os.path.exists(invoice_template): # word template
     exit('Missing invoice word template.')
 if not os.path.exists(invoice_template_mult): # word template mult
     exit('Missing invoice word template mult.')
 if not os.path.exists(invoice_template_z): # word template z
     exit('Missing invoice word template z.')
+if not os.path.exists(invoice_template_z_gg): # word template z_gg
+    exit('Missing invoice word template z_gg.')
 if not os.path.exists(invoice_template_v): # word template v
     exit('Missing invoice word template v.')
 if not os.path.exists(invoice_data_template): # data template
@@ -71,21 +77,21 @@ if not os.path.exists(invoice_data_template): # data template
 # IMPORT and AUGMENT DATA
 
 # column list
-col_list = ['OWNER', 'FIRST', 'LAST',
+col_list = ['OWNER', 'DIRECTION', 'FIRST', 'LAST',
             'STREET_ADDRESS', 'CITY_ADDRESS',
             'MY_NOTES',
             'MONTHLY_CHARGE',
-            'EMAIL_ADDRESS',
+            'EMAIL_ADDRESS', 'EMAIL_IND',
             'COND_CHARGE', 'FILT_CHARGE',
             'COND_MONTHS', 'FILT_MONTHS',
             'RP_INDICATOR',
             'Z_INDICATOR', 'V_INDICATOR']
 # data type dictionary
-types = {'OWNER':str, 'FIRST':str, 'LAST':str,
+types = {'OWNER':str, 'DIRECTION':str, 'FIRST':str, 'LAST':str,
         'STREET_ADDRESS':str, 'CITY_ADDRESS':str,
         'MY_NOTES':str,
         'MONTHLY_CHARGE':float,
-        'EMAIL_ADDRESS':str,
+        'EMAIL_ADDRESS':str, 'EMAIL_IND':int,
         'COND_CHARGE':float, 'FILT_CHARGE':float,
         'COND_MONTHS':str, 'FILT_MONTHS':str,
         'RP_INDICATOR':int,
@@ -95,9 +101,9 @@ types = {'OWNER':str, 'FIRST':str, 'LAST':str,
 tabl = pd.read_excel(invoice_data_template,
                      usecols= col_list,
                      dtype=types,
-                     skiprows=1)
-# fix email improper reading in of NA string values
-tabl['EMAIL_ADDRESS'] = tabl['EMAIL_ADDRESS'].astype(str) #'NA' is converted to 'nan'
+                     skiprows=0)
+# fix email improper reading in of NA string values in emails
+tabl['EMAIL_ADDRESS'] = tabl['EMAIL_ADDRESS'].astype(str) #'NA' is converted to string 'nan'
 # fill in any missing data for string variables
 # fill in with a blank ''
 na_list = ['FIRST', 'LAST', 'STREET_ADDRESS', 'CITY_ADDRESS', 'MY_NOTES']
@@ -137,13 +143,36 @@ try:
 except OSError:
     exit("Creation of the directory %s failed" % path)
 
-# make "emails" directory
-# example: invoices/2019_09_September/emails
-emails_path = path+'/emails'
+##### sub directories
+##### example: invoices/2019_09_September/PP and invoices/2019_09_September/GG
+## pp
+sub_path_pp = path+'/PP'
 try:
-    os.mkdir(emails_path)
+    os.mkdir(sub_path_pp)
 except OSError:
-    exit("Creation of the directory %s failed" % emails_path)
+    exit("Creation of the directory %s failed" % sub_path_pp)
+## gg
+sub_path_gg = path+'/GG'
+try:
+    os.mkdir(sub_path_gg)
+except OSError:
+    exit("Creation of the directory %s failed" % sub_path_gg)
+
+##### make "emails" directories
+## pp
+emails_path_pp = sub_path_pp+'/emails'
+try:
+    os.mkdir(emails_path_pp)
+except OSError:
+    exit("Creation of the directory %s failed" % emails_path_pp)
+## gg
+emails_path_gg = sub_path_gg+'/emails'
+try:
+    os.mkdir(emails_path_gg)
+except OSError:
+    exit("Creation of the directory %s failed" % emails_path_gg)
+
+print("Directories created.")
 
 
 
@@ -734,12 +763,6 @@ tabl['INCLUDED'] = included
 # current date
 DATE = datetime.datetime.today().strftime('%B %d, %Y')
 
-# FIND FIRST ROW TO START
-where_filt = np.where(included==1)[0] # first non-skip row
-if where_filt.size == 0:
-    exit('Error in finding beginning row.')
-start = where_filt[0]
-
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
 # HELPER FUNCTION to grab appropriate data
@@ -765,22 +788,20 @@ def grab_data(row):
     data['TOTAL'] = '${:,.2f}'.format(data['TOTAL'])
     return
 
+##### set data originally to hold nothining
+data = None
+
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
 print("Writing files....")
 
-### first file
-# grab data and process it
-data = None # declare global var first
-grab_data(start) # grab data from first doc
-
-# create first doc
-doc = DocxTemplate(invoice_template)
-doc.render(data)
-
-# create invoice file and save
-invoice_doc = path+'/invoice_'+MONTH+'_'+YEAR+'.docx'
-doc.save(invoice_doc)
+### first files
+doc_pp = DocxTemplate(fpage)
+doc_gg = DocxTemplate(fpage)
+invoice_doc_path_pp = sub_path_pp+'/pp_invoice_'+MONTH+'_'+YEAR+'.docx'
+invoice_doc_path_gg = sub_path_gg+'/gg_invoice_'+MONTH+'_'+YEAR+'.docx'
+doc_pp.save(invoice_doc_path_pp)
+doc_gg.save(invoice_doc_path_gg)
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
@@ -795,7 +816,7 @@ rp_notes = []
 #####
 
 # loop
-for i in range(start+1,N):
+for i in range(N):
     # progress print
     print(i)
 
@@ -803,7 +824,7 @@ for i in range(start+1,N):
     if included[i] == 0:
         continue # skip it
 
-    ##### create temp dox
+    ##### create temp doc
 
     # grab data and process it
     grab_data(i)
@@ -846,7 +867,7 @@ for i in range(start+1,N):
             for ele in rp_adds:
                 if ele != '':
                     total_sum += float(ele.strip('$'))
-            data['TOTAL'] = '$'+str(total_sum)
+            data['TOTAL'] = '${:,.2f}'.format(total_sum)
             rp_ind = True # finished the 'rp' process, note it
         else:
             # nothing to do yet but to append the data
@@ -860,7 +881,10 @@ for i in range(start+1,N):
         temp = DocxTemplate(invoice_template_mult)
         rp_ind = False # revert rp process completion indicator for next round
     elif tabl['Z_INDICATOR'][i] == 1: # Z stuff
-        temp = DocxTemplate(invoice_template_z)
+        if if tabl['DIRECTION'][i].strip() == 'PP':
+            temp = DocxTemplate(invoice_template_z)
+        else:
+            temp = DocxTemplate(invoice_template_z_gg)
     elif tabl['V_INDICATOR'][i] == 1: # v stuff
         temp = DocxTemplate(invoice_template_v)
     else: # default
@@ -869,10 +893,17 @@ for i in range(start+1,N):
     temp.render(data)
 
     # if no email indicator, merge to paper invoice
-    if tabl['EMAIL_ADDRESS'][i].strip() == 'nan':
+    if tabl['EMAIL_ADDRESS'][i].strip() == 1:
         ### merge docs
+        # check for DIRECTION
+        if tabl['DIRECTION'][i].strip() == 'PP':
+            # path
+            doc_path = invoice_doc_path_pp
+        else:
+            # path
+            doc_path = invoice_doc_path_gg
         # load master doc
-        doc = Document(invoice_doc)
+        doc = Document(doc_path)
         # add page break
         doc.add_page_break()
         # compose it
@@ -881,10 +912,15 @@ for i in range(start+1,N):
         composer.append(temp)
 
         # save the final output
-        composer.save(invoice_doc)
+        composer.save(doc_path)
     else:
-        # path
-        temp_emails_path = emails_path+'/'+tabl['EMAIL_ADDRESS'][i].strip()
+        # check for DIRECTION
+        if tabl['DIRECTION'][i].strip() == 'PP':
+            # path
+            temp_emails_path = emails_path_pp+'/'+tabl['EMAIL_ADDRESS'][i].strip()
+        else:
+            # path
+            temp_emails_path = emails_path_gg+'/'+tabl['EMAIL_ADDRESS'][i].strip()
         # make directory
         os.mkdir(temp_emails_path)
         # temp email paths word doc file name
@@ -895,6 +931,8 @@ for i in range(start+1,N):
         temp_emails_path_doc += '.docx'
         # save doc
         temp.save(temp_emails_path_doc)
+
+print("Files written.")
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
@@ -964,7 +1002,7 @@ short_writer.save()
 print('Main program done.')
 
 # total total sum
-print('Total: ${:.2f}'.format(tabl['TOTAL'].values.sum()))
+print('Total: ${:,.2f}'.format(tabl['TOTAL'].values.sum()))
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
