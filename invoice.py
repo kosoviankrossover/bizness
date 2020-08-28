@@ -881,7 +881,7 @@ for i in range(N):
         temp = DocxTemplate(invoice_template_mult)
         rp_ind = False # revert rp process completion indicator for next round
     elif tabl['Z_INDICATOR'][i] == 1: # Z stuff
-        if if tabl['DIRECTION'][i].strip() == 'PP':
+        if tabl['DIRECTION'][i].strip() == 'PP':
             temp = DocxTemplate(invoice_template_z)
         else:
             temp = DocxTemplate(invoice_template_z_gg)
@@ -893,7 +893,7 @@ for i in range(N):
     temp.render(data)
 
     # if no email indicator, merge to paper invoice
-    if tabl['EMAIL_ADDRESS'][i].strip() == 1:
+    if tabl['EMAIL_IND'][i] == 0:
         ### merge docs
         # check for DIRECTION
         if tabl['DIRECTION'][i].strip() == 'PP':
